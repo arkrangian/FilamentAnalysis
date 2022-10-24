@@ -4,7 +4,9 @@ from scipy import stats
 from linearFitting import linearFitting
 
 class FilamentExp:
-    def __init__(self, datapath, filamentV, ionCut, peCutL, peCutR, cutBK_L = 0, cutBK_R = 2, cutRM_L = 6, cutRM_R = 8) -> None:
+    def __init__(self, datapath, memo, filamentV, ionCut, peCutL, peCutR, cutBK_L = 0, cutBK_R = 2, cutRM_L = 6, cutRM_R = 8) -> None:
+        self.memo = memo
+        
         """ parameter """
         self.filamentV = filamentV
         self.cutIon = ionCut
@@ -21,8 +23,8 @@ class FilamentExp:
         self.data = self.data.dropna().reset_index(drop=True)
 
         """ 사용할 축들 """
-        self.dataV = data['Vb'].to_numpy()
-        self.dataI_original = data['I'].to_numpy()
+        self.dataV = self.data['Vb'].to_numpy()
+        self.dataI_original = self.data['I'].to_numpy()
         # Ion 제거
         self.dataI_del_Ion = None
         # Ion, Primary electron 제거
@@ -85,16 +87,6 @@ class FilamentExp:
         self.curveRM = np.poly1d(self.resultRM['polynomial'])
 
     def calcCharacteristics(self):
-        """ 상수 """
-        e = 1.6 * 10^(-19)
-        k = 8.617 * 10^(-5)
-        me = 9.109 * 10^(-31)
-        # 타겟기체 질량, 여기선 Ar
-        M_ion = 40 * 1.66 * 10^(-27)
-        Cs = np.sqrt(self.tempBE/M_ion)
-        # 탐침 면적
-        Area = np.pi * (0.005) ^ 2
-
         """ 플라즈마 전위 """
         coeffBE = self.resultBE['polynomial']
         coeffRM = self.resultRM['polynomial'] 
@@ -103,6 +95,16 @@ class FilamentExp:
         """ 전자 온도 """
         # Bulk Electron ln 상에서 linearfit 한거 기울기 역수가 온도(eV)
         self.tempBE = 1/coeffBE[0]
+
+        """ 상수 """
+        e = 1.6 * 10**(-19)
+        k = 8.617 * 10**(-5)
+        me = 9.109 * 10**(-31)
+        # 타겟기체 질량, 여기선 Ar
+        M_ion = 40 * 1.66 * 10**(-27)
+        Cs = np.sqrt(self.tempBE/M_ion)
+        # 탐침 면적
+        Area = np.pi * (0.005) ** 2
 
         """ 이온 밀도 """
         IonIsat = self.curveIon(self.plasmaV)
@@ -117,51 +119,31 @@ class FilamentExp:
         BEIsat = np.exp(self.curveBE(self.plasmaV))
         vth = np.sqrt(8*self.tempBE / np.pi * me)
         self.nBE = 4*BEIsat/(e*vth*Area)
-        
 
+    def breif(self):
+        print(self.memo)
+        # Ion curve
+        print("이온 커브")
+        print(self.resultIon)
+        # Primary Electron curve
+        print("PE 커브")
+        print(self.resultPE)
+        # Bulk Electron curve
+        print("bulk전자 커브(ln 씌운거)")
+        print(self.resultBE)
+        # rightmost curve (플라즈마 전위구할때 씀)
+        print("Rm 커브(ln 씌운거)")
+        print(self.resultRM)
 
-defaultPath = 'C:/Kim_Min_Jung/2022년 2학기/핵융합 플라즈마 실험/2. 필라멘트/실험데이터/22.10.19(수)/1019'
-
-"pandas 객체 데이터 구성"
-colName = ['Vb','I']
-data = pd.read_csv(defaultPath+'/1019_shot5.dat', delimiter='\t', names=colName, header=None)
-data = data.dropna().reset_index(drop=True)
-
-"Ion linear fitting"
-#parameter
-Vb = -57.4
-# x val
-dataV = data['Vb'].to_numpy()
-# y val
-dataI_original = data['I'].to_numpy()
-
-# linear fitting result
-ionFittngResult = linearFitting(dataV,dataI_original,xTo=Vb)
-print('ion fit result\n',ionFittngResult)
-IonCurve = np.poly1d(ionFittngResult['polynomial'])
-dataI_delIon = dataI_original - IonCurve(dataV)
-
-"Electron linear fitting"
-#parameter
-VFrom = -57.4
-VTo = -40
-primaryElectronFittingResult = linearFitting(dataV,dataI_delIon,xFrom=VFrom,xTo=VTo)
-print('primary electron fit result\n',primaryElectronFittingResult)
-PrimaryElectronCurve = np.poly1d(primaryElectronFittingResult['polynomial'])
-dataI_delIonElec = dataI_delIon - PrimaryElectronCurve(dataV)
-
-
-"BE Electron fitting"
-# get Vp(plasma voltage), kTe(electron energy)
-dataI_delIonElec_ln = np.log(np.abs(dataI_delIonElec))
-
-# Vp
-BEResult = linearFitting(dataV,dataI_delIonElec_ln,xFrom=0,xTo=2)
-print(BEResult)
-otherResult = linearFitting(dataV,dataI_delIonElec_ln,xFrom=6,xTo=8)
-print(otherResult)
-Vp = - (BEResult['polynomial'][1] - otherResult['polynomial'][1])/(BEResult['polynomial'][0] - otherResult['polynomial'][0])
-print(Vp)
-
-# Te
-# 역수
+        """ characteristic values """
+        print("플라즈마 전위")
+        print(self.plasmaV)
+        print("벌크전자 온도")
+        print(self.tempBE)
+        print("이온 밀도")
+        print(self.nIon) 
+        print("주전자 밀도")
+        print(self.nPE)
+        print("벌크전자 밀도")
+        print(self.nBE)
+        print("")
